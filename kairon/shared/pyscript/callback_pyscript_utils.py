@@ -351,12 +351,7 @@ class CallbackScriptUtility:
             {"$project": {
                 "_id": {"$toString": "$_id"},
                 "collection_name": 1,
-                "received_at": {
-                "$dateToString": {
-                    "format": "%Y-%m-%dT%H:%M:%S.%LZ",
-                    "date": "$received_at"
-                    }
-                },
+                "received_at": 1,
                 "source": 1,
                 "is_data_processed": 1,
                 "data": 1
