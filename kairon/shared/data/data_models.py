@@ -1024,6 +1024,7 @@ class StorePageActionRequest(BaseModel):
     name: constr(to_lower=True, strip_whitespace=True)
     page_name: str
     identifier_slot: str
+    callback_identifier: Optional[str] = None
 
 
 class JiraActionRequest(BaseModel):

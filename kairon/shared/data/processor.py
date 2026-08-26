@@ -7279,6 +7279,7 @@ class MongoProcessor:
             name=action["name"],
             page_name=action["page_name"],
             identifier_slot=action["identifier_slot"],
+            callback_identifier=action.get("callback_identifier"),
             bot=bot,
             user=user,
         ).save()
@@ -7295,6 +7296,7 @@ class MongoProcessor:
         store_page_action = StorePageAction.objects(name=action["name"], bot=bot, status=True).get()
         store_page_action.page_name = action["page_name"]
         store_page_action.identifier_slot = action["identifier_slot"]
+        store_page_action.callback_identifier = action.get("callback_identifier")
         store_page_action.user = user
         store_page_action.timestamp = datetime.utcnow()
         store_page_action.save()
