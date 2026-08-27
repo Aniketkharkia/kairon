@@ -77,7 +77,7 @@ class CustomerOrderProcessor:
 
     @staticmethod
     def _create_razorpay_payment_link(api_key: str, api_secret: str, order_id: str,
-                                      order_details: dict, callback_url: str) -> Dict[str, Any]:
+                                      order_details: dict, callback_url: str, callback_identifier: str) -> Dict[str, Any]:
         amount = order_details.get("amount", 0)
         currency = order_details.get("currency", "INR")
         payload = {
@@ -93,7 +93,8 @@ class CustomerOrderProcessor:
             "reference_id": order_id,
             "notify": {"sms": True, "email": True},
             "notes": {
-                "kairon_id": order_id
+                "kairon_id": callback_identifier,
+                "kairon_order_id": order_id
             },
         }
         resp = http_requests.post(
@@ -226,9 +227,14 @@ class CustomerOrderProcessor:
             store_config = {}
 
         if store_config.get("payment_enabled"):
-            page_name = store_config.get("page_name", "catalog")
-
-            from kairon.shared.actions.data_objects import RazorpayAction
+            from kairon.shared.actions.data_objects import StorePageAction, RazorpayAction
+            try:
+                store_page = StorePageAction.objects(bot=bot, status=True).get()
+                page_name = store_page.page_name
+                callback_identifier = store_page.callback_identifier
+            except DoesNotExist:
+                page_name = "catalog"
+                callback_identifier = None
             try:
                 action = RazorpayAction.objects(bot=bot, status=True).get()
             except DoesNotExist:
@@ -242,7 +248,7 @@ class CustomerOrderProcessor:
 
             try:
                 razorpay_resp = CustomerOrderProcessor._create_razorpay_payment_link(
-                    api_key, api_secret, order_id, order_payload, callback_url
+                    api_key, api_secret, order_id, order_payload, callback_url, callback_identifier
                 )
                 payment_id = razorpay_resp.get("id", "")
                 payment_link = razorpay_resp.get("short_url", "")

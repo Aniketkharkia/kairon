@@ -692,6 +692,7 @@ class TestCreateRazorpayPaymentLink:
                 order_details={"amount": 100, "currency": "INR", "name": "Alice",
                                "contact": "9999999999", "email": "a@a.com"},
                 callback_url="https://catalog.kairon.com/catalog/bot/enc/token",
+                callback_identifier="cb_001",
             )
         assert result["id"] == "pay_123"
         assert result["short_url"] == "https://rzp.io/pay/abc"
@@ -709,6 +710,7 @@ class TestCreateRazorpayPaymentLink:
                     order_id="order_002",
                     order_details={"amount": 0},
                     callback_url="https://cb.url",
+                    callback_identifier=None,
                 )
 
     def test_amount_converted_to_paise(self):
@@ -721,6 +723,7 @@ class TestCreateRazorpayPaymentLink:
                 api_key="k", api_secret="s", order_id="o3",
                 order_details={"amount": 49.99},
                 callback_url="https://cb",
+                callback_identifier=None,
             )
         call_payload = mock_post.call_args.kwargs["json"]
         assert call_payload["amount"] == 4999
@@ -767,16 +770,26 @@ class TestCreateOrderPaymentEnabled:
             persona_type="fnb", payload={"mobile": "9990000001"},
         )
         from kairon.shared.data.data_objects import StorePageMetadata
-        from kairon.shared.actions.data_objects import RazorpayAction
+        from kairon.shared.actions.data_objects import RazorpayAction, StorePageAction
         StorePageMetadata.objects(bot=self.bot).delete()
         RazorpayAction.objects(bot=self.bot).delete()
+        StorePageAction.objects(bot=self.bot).delete()
 
-    def _save_store_metadata(self, payment_enabled=True, page_name="catalog"):
+    def _save_store_metadata(self, payment_enabled=True):
         from kairon.shared.data.data_objects import StorePageMetadata
         StorePageMetadata.objects(bot=self.bot).delete()
         StorePageMetadata(
             bot=self.bot, user="test_user",
-            config={"payment_enabled": payment_enabled, "page_name": page_name},
+            config={"payment_enabled": payment_enabled},
+        ).save()
+
+    def _save_store_page_action(self, page_name="catalog", callback_identifier=None):
+        from kairon.shared.actions.data_objects import StorePageAction
+        StorePageAction.objects(bot=self.bot).delete()
+        StorePageAction(
+            name="test_store_page_action", bot=self.bot, user="test_user",
+            page_name=page_name, identifier_slot="user_identifier",
+            callback_identifier=callback_identifier,
         ).save()
 
     def _save_razorpay_action(self, api_key="rzp_key", api_secret="rzp_secret"):
@@ -803,6 +816,7 @@ class TestCreateOrderPaymentEnabled:
 
     def test_payment_enabled_no_razorpay_action_raises(self):
         self._save_store_metadata(payment_enabled=True)
+        self._save_store_page_action()
         with pytest.raises(AppException, match="Razorpay action not configured"):
             CustomerOrderProcessor.create_order(
                 bot=self.bot, sender_id=self.enc,
@@ -812,6 +826,7 @@ class TestCreateOrderPaymentEnabled:
 
     def test_payment_enabled_razorpay_success_returns_payment_fields(self):
         self._save_store_metadata(payment_enabled=True)
+        self._save_store_page_action(page_name="shop", callback_identifier="cb_001")
         self._save_razorpay_action()
         mock_resp = MagicMock()
         mock_resp.ok = True
@@ -828,9 +843,13 @@ class TestCreateOrderPaymentEnabled:
         assert result["payment_id"] == "pay_xyz"
         assert result["payment_link"] == "https://rzp.io/xyz"
         assert "order_id" in result
+        call_payload = mock_post.call_args[1]["json"]
+        assert call_payload["notes"]["kairon_id"] == "cb_001"
+        assert call_payload["notes"]["kairon_order_id"] == result["order_id"]
 
     def test_payment_enabled_razorpay_app_exception_reraises(self):
         self._save_store_metadata(payment_enabled=True)
+        self._save_store_page_action()
         self._save_razorpay_action()
         mock_resp = MagicMock()
         mock_resp.ok = False
@@ -849,6 +868,7 @@ class TestCreateOrderPaymentEnabled:
 
     def test_payment_enabled_network_error_logs_warning_returns_order(self):
         self._save_store_metadata(payment_enabled=True)
+        self._save_store_page_action()
         self._save_razorpay_action()
         with patch("kairon.shared.data.customer_order_processor.http_requests.post") as mock_post:
             mock_post.side_effect = ConnectionError("network error")

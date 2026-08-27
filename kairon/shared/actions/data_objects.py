@@ -536,6 +536,7 @@ class StorePageAction(Auditlog):
     name = StringField(required=True)
     page_name = StringField(required=True)
     identifier_slot = StringField(required=True)
+    callback_identifier = StringField(default=None)
     bot = StringField(required=True)
     user = StringField(required=True)
     timestamp = DateTimeField(default=datetime.utcnow)
