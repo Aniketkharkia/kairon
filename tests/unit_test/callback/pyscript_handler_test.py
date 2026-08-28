@@ -4692,3 +4692,65 @@ def test_create_vector_collection_embedding_size_from_process_instruction():
         assert schema_meta_call.kwargs.get("size") == 2048
         assert schema_meta_call.kwargs.get("model_id") == "qwen/qwen3-embedding-4b"
 
+
+class TestGetOrderDetails:
+
+    def test_get_order_details_success(self):
+        order_data = {
+            "_id": "order_abc123",
+            "bot": "test_bot",
+            "status": "placed",
+            "order_details": {"items": [{"name": "Pizza", "qty": 2}]},
+            "additional_info": {},
+        }
+        with patch(
+            "kairon.shared.data.customer_order_processor.CustomerOrderProcessor.get_order",
+            return_value=order_data,
+        ) as mock_get:
+            result = PyscriptSharedUtility.get_order_details(order_id="order_abc123", bot="test_bot")
+        mock_get.assert_called_once_with(bot="test_bot", order_id="order_abc123")
+        assert result == order_data
+
+    def test_get_order_details_missing_bot_raises(self):
+        with pytest.raises(Exception, match="Missing bot id"):
+            PyscriptSharedUtility.get_order_details(order_id="order_abc123")
+
+    def test_get_order_details_not_found_raises(self):
+        with patch(
+            "kairon.shared.data.customer_order_processor.CustomerOrderProcessor.get_order",
+            side_effect=AppException("Order not found"),
+        ):
+            with pytest.raises(AppException, match="Order not found"):
+                PyscriptSharedUtility.get_order_details(order_id="nonexistent", bot="test_bot")
+
+
+class TestGetCustomerDetails:
+
+    def test_get_customer_details_success(self):
+        customer_data = {
+            "_id": "cust_xyz",
+            "bot": "test_bot",
+            "sender_id": "***masked***",
+            "persona_type": "fnb",
+            "additional_info": {"name": "Alice"},
+        }
+        with patch(
+            "kairon.shared.data.customer_order_processor.CustomerOrderProcessor.get_customer",
+            return_value=customer_data,
+        ) as mock_get:
+            result = PyscriptSharedUtility.get_customer_details(sender_id="enc_sender_id", bot="test_bot")
+        mock_get.assert_called_once_with(bot="test_bot", sender_id="enc_sender_id")
+        assert result == customer_data
+
+    def test_get_customer_details_missing_bot_raises(self):
+        with pytest.raises(Exception, match="Missing bot id"):
+            PyscriptSharedUtility.get_customer_details(sender_id="enc_sender_id")
+
+    def test_get_customer_details_not_found_raises(self):
+        with patch(
+            "kairon.shared.data.customer_order_processor.CustomerOrderProcessor.get_customer",
+            side_effect=AppException("Customer not found"),
+        ):
+            with pytest.raises(AppException, match="Customer not found"):
+                PyscriptSharedUtility.get_customer_details(sender_id="enc_sender_id", bot="test_bot")
+
