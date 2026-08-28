@@ -4754,3 +4754,108 @@ class TestGetCustomerDetails:
             with pytest.raises(AppException, match="Customer not found"):
                 PyscriptSharedUtility.get_customer_details(sender_id="enc_sender_id", bot="test_bot")
 
+
+class TestUpsertCustomer:
+
+    def test_upsert_customer_success(self):
+        customer_data = {
+            "_id": "cust_001",
+            "bot": "test_bot",
+            "sender_id": "***masked***",
+            "persona_type": "fnb",
+            "additional_info": {"name": "Alice"},
+        }
+        with patch(
+            "kairon.shared.data.customer_order_processor.CustomerOrderProcessor.upsert_customer",
+            return_value=customer_data,
+        ) as mock_upsert:
+            result = PyscriptSharedUtility.upsert_customer(
+                sender_id="enc_id", persona_type="fnb",
+                payload={"name": "Alice"}, bot="test_bot"
+            )
+        mock_upsert.assert_called_once_with(
+            bot="test_bot", sender_id="enc_id", persona_type="fnb", payload={"name": "Alice"}
+        )
+        assert result == customer_data
+
+    def test_upsert_customer_default_empty_payload(self):
+        with patch(
+            "kairon.shared.data.customer_order_processor.CustomerOrderProcessor.upsert_customer",
+            return_value={"_id": "cust_002"},
+        ) as mock_upsert:
+            PyscriptSharedUtility.upsert_customer(sender_id="enc_id", bot="test_bot")
+        mock_upsert.assert_called_once_with(
+            bot="test_bot", sender_id="enc_id", persona_type=None, payload={}
+        )
+
+    def test_upsert_customer_missing_bot_raises(self):
+        with pytest.raises(Exception, match="Missing bot id"):
+            PyscriptSharedUtility.upsert_customer(sender_id="enc_id")
+
+    def test_upsert_customer_propagates_app_exception(self):
+        with patch(
+            "kairon.shared.data.customer_order_processor.CustomerOrderProcessor.upsert_customer",
+            side_effect=AppException("Customer with this identifier already exists for this bot"),
+        ):
+            with pytest.raises(AppException, match="already exists"):
+                PyscriptSharedUtility.upsert_customer(
+                    sender_id="enc_id", bot="test_bot", payload={}
+                )
+
+
+class TestUpdateOrder:
+
+    def test_update_order_success(self):
+        updated_order = {
+            "_id": "order_001",
+            "bot": "test_bot",
+            "status": "placed",
+            "order_details": {"items": [{"name": "Burger", "qty": 1}], "amount": 150},
+            "additional_info": {"notes": "no onions"},
+        }
+        with patch(
+            "kairon.shared.data.customer_order_processor.CustomerOrderProcessor.update_order",
+            return_value=updated_order,
+        ) as mock_update:
+            result = PyscriptSharedUtility.update_order(
+                order_id="order_001",
+                payload={"order_details": {"items": [{"name": "Burger", "qty": 1}], "amount": 150},
+                         "additional_info": {"notes": "no onions"}},
+                bot="test_bot",
+            )
+        mock_update.assert_called_once_with(
+            bot="test_bot", order_id="order_001",
+            payload={"order_details": {"items": [{"name": "Burger", "qty": 1}], "amount": 150},
+                     "additional_info": {"notes": "no onions"}},
+        )
+        assert result == updated_order
+
+    def test_update_order_partial_payload(self):
+        with patch(
+            "kairon.shared.data.customer_order_processor.CustomerOrderProcessor.update_order",
+            return_value={"_id": "order_002"},
+        ) as mock_update:
+            PyscriptSharedUtility.update_order(
+                order_id="order_002",
+                payload={"additional_info": {"delivery": "asap"}},
+                bot="test_bot",
+            )
+        mock_update.assert_called_once_with(
+            bot="test_bot", order_id="order_002",
+            payload={"additional_info": {"delivery": "asap"}},
+        )
+
+    def test_update_order_missing_bot_raises(self):
+        with pytest.raises(Exception, match="Missing bot id"):
+            PyscriptSharedUtility.update_order(order_id="order_001", payload={})
+
+    def test_update_order_not_found_raises(self):
+        with patch(
+            "kairon.shared.data.customer_order_processor.CustomerOrderProcessor.update_order",
+            side_effect=AppException("Order not found"),
+        ):
+            with pytest.raises(AppException, match="Order not found"):
+                PyscriptSharedUtility.update_order(
+                    order_id="nonexistent", payload={}, bot="test_bot"
+                )
+

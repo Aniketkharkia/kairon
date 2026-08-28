@@ -263,6 +263,27 @@ class CustomerOrderProcessor:
         return {"order_id": order_id, "payment_id": payment_id, "payment_link": payment_link}
 
     @staticmethod
+    def update_order(bot: Text, order_id: str, payload: Dict) -> Dict:
+        try:
+            order = OrderDetails.objects(bot=bot, id=ObjectId(order_id)).get()
+        except (DoesNotExist, InvalidId):
+            raise AppException("Order not found")
+
+        if "order_details" in payload:
+            order.order_details = payload["order_details"]
+        if "additional_info" in payload:
+            order.additional_info = payload["additional_info"]
+
+        try:
+            order.save()
+        except ValidationError as e:
+            raise AppException(str(e))
+
+        result = order.to_mongo().to_dict()
+        result["_id"] = str(result["_id"])
+        return CustomerOrderProcessor._mask_sender_id(result)
+
+    @staticmethod
     def update_order_status(bot: Text, order_id: str, new_status: str) -> Dict:
         try:
             order = OrderDetails.objects(bot=bot, id=ObjectId(order_id)).get()
