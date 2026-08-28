@@ -31,7 +31,8 @@ from kairon.api.app.routers.bot.customer_orders import (
     update_order_status,
     upsert_customer,
 )
-from kairon.api.app.routers.bot.bot import get_store_page_metadata
+from kairon.api.app.routers.bot.bot import get_store_page_metadata, save_store_page_metadata
+from kairon.shared.data.data_models import StorePageMetadataRequest
 from kairon.api.app.routers.bot.data import (
     list_collection_data,
     get_collection_metadata,
@@ -440,3 +441,84 @@ class TestCollectionDataRouter:
                 await get_collection_filter_count(
                     bot=BOT, collection_name="menu", filters="{bad}", current_user=MagicMock()
                 )
+
+
+class TestSaveStorePageMetadataRouter:
+
+    @pytest.mark.asyncio
+    async def test_save_store_page_metadata_success(self):
+        request = StorePageMetadataRequest(config={"payment_enabled": True, "currency": "INR"})
+        with patch(
+            "kairon.api.app.routers.bot.bot.mongo_processor.save_store_page_metadata"
+        ) as mock_proc:
+            result = await save_store_page_metadata(request=request, current_user=_MOCK_USER)
+        mock_proc.assert_called_once_with(
+            bot=BOT,
+            user=_MOCK_USER.get_user(),
+            config={"payment_enabled": True, "currency": "INR"},
+        )
+        assert result.message == "Store page metadata saved successfully"
+
+    @pytest.mark.asyncio
+    async def test_save_store_page_metadata_empty_config(self):
+        request = StorePageMetadataRequest(config={})
+        with patch(
+            "kairon.api.app.routers.bot.bot.mongo_processor.save_store_page_metadata"
+        ) as mock_proc:
+            result = await save_store_page_metadata(request=request, current_user=_MOCK_USER)
+        mock_proc.assert_called_once_with(bot=BOT, user=_MOCK_USER.get_user(), config={})
+        assert result.message == "Store page metadata saved successfully"
+
+    @pytest.mark.asyncio
+    async def test_save_store_page_metadata_processor_raises(self):
+        request = StorePageMetadataRequest(config={"payment_enabled": True})
+        with patch(
+            "kairon.api.app.routers.bot.bot.mongo_processor.save_store_page_metadata",
+            side_effect=AppException("DB error"),
+        ):
+            with pytest.raises(AppException, match="DB error"):
+                await save_store_page_metadata(request=request, current_user=_MOCK_USER)
+
+
+class TestSaveStorePageMetadataProcessor:
+
+    def setup_method(self):
+        from mongoengine import connect
+        from kairon.shared.utils import Utility
+        connect(**Utility.mongoengine_connection(Utility.environment["database"]["url"]))
+        self.bot = "test_save_metadata_proc_bot"
+        self.user = "test_user"
+        from kairon.shared.data.data_objects import StorePageMetadata
+        StorePageMetadata.objects(bot=self.bot).delete()
+
+    def teardown_method(self):
+        from kairon.shared.data.data_objects import StorePageMetadata
+        StorePageMetadata.objects(bot=self.bot).delete()
+
+    def test_save_creates_new_record(self):
+        from kairon.shared.data.processor import MongoProcessor
+        from kairon.shared.data.data_objects import StorePageMetadata
+        processor = MongoProcessor()
+        processor.save_store_page_metadata(self.bot, self.user, {"payment_enabled": True})
+        doc = StorePageMetadata.objects(bot=self.bot).get()
+        assert doc.config == {"payment_enabled": True}
+        assert doc.user == self.user
+
+    def test_save_upserts_existing_record(self):
+        from kairon.shared.data.processor import MongoProcessor
+        from kairon.shared.data.data_objects import StorePageMetadata
+        processor = MongoProcessor()
+        processor.save_store_page_metadata(self.bot, self.user, {"payment_enabled": False})
+        processor.save_store_page_metadata(self.bot, self.user, {"payment_enabled": True, "currency": "INR"})
+        assert StorePageMetadata.objects(bot=self.bot).count() == 1
+        doc = StorePageMetadata.objects(bot=self.bot).get()
+        assert doc.config == {"payment_enabled": True, "currency": "INR"}
+
+    def test_save_then_get_roundtrip(self):
+        from kairon.shared.data.processor import MongoProcessor
+        processor = MongoProcessor()
+        config = {"payment_enabled": True, "store_name": "My Shop"}
+        processor.save_store_page_metadata(self.bot, self.user, config)
+        result = processor.get_store_page_metadata(self.bot)
+        assert result["config"] == config
+        assert result["bot"] == self.bot

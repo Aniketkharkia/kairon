@@ -1020,6 +1020,10 @@ class VoiceCallActionRequest(BaseModel):
     dispatch_bot_response: bool = True
 
 
+class StorePageMetadataRequest(BaseModel):
+    config: Dict[str, Any]
+
+
 class StorePageActionRequest(BaseModel):
     name: constr(to_lower=True, strip_whitespace=True)
     page_name: str
