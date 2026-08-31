@@ -272,7 +272,9 @@ class CustomerOrderProcessor:
         if "order_details" in payload:
             order.order_details = payload["order_details"]
         if "additional_info" in payload:
-            order.additional_info = payload["additional_info"]
+            existing = order.additional_info or {}
+            existing.update(payload["additional_info"])
+            order.additional_info = existing
 
         try:
             order.save()

@@ -492,6 +492,29 @@ class TestUpdateOrder:
         )
         assert result["status"] == "placed"
 
+    def test_update_additional_info_merges_existing_fields(self):
+        CustomerOrderProcessor.update_order(
+            bot=self.bot, order_id=self.order_id,
+            payload={"additional_info": {"notes": "no onion"}},
+        )
+        result = CustomerOrderProcessor.update_order(
+            bot=self.bot, order_id=self.order_id,
+            payload={"additional_info": {"delivery": "asap"}},
+        )
+        assert result["additional_info"]["notes"] == "no onion"
+        assert result["additional_info"]["delivery"] == "asap"
+
+    def test_update_additional_info_overwrites_existing_key(self):
+        CustomerOrderProcessor.update_order(
+            bot=self.bot, order_id=self.order_id,
+            payload={"additional_info": {"notes": "no onion"}},
+        )
+        result = CustomerOrderProcessor.update_order(
+            bot=self.bot, order_id=self.order_id,
+            payload={"additional_info": {"notes": "extra spicy"}},
+        )
+        assert result["additional_info"]["notes"] == "extra spicy"
+
 
 class TestListOrders:
 

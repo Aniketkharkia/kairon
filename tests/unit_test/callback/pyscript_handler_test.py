@@ -4859,3 +4859,41 @@ class TestUpdateOrder:
                     order_id="nonexistent", payload={}, bot="test_bot"
                 )
 
+
+class TestUpdateOrderStatus:
+    def test_update_order_status_success(self):
+        expected = {"order_id": "order_001", "status": "confirmed"}
+        with patch(
+            "kairon.shared.data.customer_order_processor.CustomerOrderProcessor.update_order_status",
+            return_value=expected,
+        ) as mock_fn:
+            result = PyscriptSharedUtility.update_order_status(
+                order_id="order_001", new_status="confirmed", bot="test_bot"
+            )
+            mock_fn.assert_called_once_with(bot="test_bot", order_id="order_001", new_status="confirmed")
+            assert result == expected
+
+    def test_update_order_status_missing_bot_raises(self):
+        with pytest.raises(Exception, match="Missing bot id"):
+            PyscriptSharedUtility.update_order_status(order_id="order_001", new_status="confirmed")
+
+    def test_update_order_status_invalid_transition_raises(self):
+        with patch(
+            "kairon.shared.data.customer_order_processor.CustomerOrderProcessor.update_order_status",
+            side_effect=AppException("Invalid transition: placed → completed. Allowed: ['confirmed', 'cancelled']"),
+        ):
+            with pytest.raises(AppException, match="Invalid transition"):
+                PyscriptSharedUtility.update_order_status(
+                    order_id="order_001", new_status="completed", bot="test_bot"
+                )
+
+    def test_update_order_status_not_found_raises(self):
+        with patch(
+            "kairon.shared.data.customer_order_processor.CustomerOrderProcessor.update_order_status",
+            side_effect=AppException("Order not found"),
+        ):
+            with pytest.raises(AppException, match="Order not found"):
+                PyscriptSharedUtility.update_order_status(
+                    order_id="nonexistent", new_status="confirmed", bot="test_bot"
+                )
+

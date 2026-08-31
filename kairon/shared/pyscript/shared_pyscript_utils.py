@@ -150,6 +150,13 @@ class PyscriptSharedUtility:
         return CustomerOrderProcessor.update_order(bot=bot, order_id=order_id, payload=payload)
 
     @staticmethod
+    def update_order_status(order_id: str, new_status: str, bot: Text = None) -> dict:
+        if not bot:
+            raise Exception("Missing bot id")
+        from kairon.shared.data.customer_order_processor import CustomerOrderProcessor
+        return CustomerOrderProcessor.update_order_status(bot=bot, order_id=order_id, new_status=new_status)
+
+    @staticmethod
     def delete_schedule_job(event_id: Text, bot: Text):
         if not bot:
             raise AppException("Missing bot id")
