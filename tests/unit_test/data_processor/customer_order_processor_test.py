@@ -420,6 +420,102 @@ class TestUpdateOrderStatus:
         assert result["status"] == "cancelled"
 
 
+class TestUpdateOrder:
+
+    def setup_method(self):
+        self.bot = "cop_update_order_bot"
+        enc = _enc("update_order_user1")
+        CustomerOrderProcessor.upsert_customer(
+            bot=self.bot, sender_id=enc,
+            persona_type="fnb", payload={"mobile": "9930000001"},
+        )
+        self.order = CustomerOrderProcessor.create_order(
+            bot=self.bot, sender_id=enc,
+            persona_type="fnb",
+            order_payload={"item": "Tea", "qty": 1, "price": 30},
+        )
+        self.order_id = self.order["order_id"]
+
+    def test_update_order_details(self):
+        payload = {"order_details": {"item": "Tea", "qty": 2, "price": 60}}
+        result = CustomerOrderProcessor.update_order(
+            bot=self.bot, order_id=self.order_id, payload=payload
+        )
+        assert result["order_details"]["qty"] == 2
+        assert result["order_details"]["price"] == 60
+
+    def test_update_additional_info(self):
+        payload = {"additional_info": {"notes": "less sugar"}}
+        result = CustomerOrderProcessor.update_order(
+            bot=self.bot, order_id=self.order_id, payload=payload
+        )
+        assert result["additional_info"]["notes"] == "less sugar"
+
+    def test_update_order_details_and_additional_info(self):
+        payload = {
+            "order_details": {"item": "Coffee", "qty": 3, "price": 90},
+            "additional_info": {"delivery": "asap"},
+        }
+        result = CustomerOrderProcessor.update_order(
+            bot=self.bot, order_id=self.order_id, payload=payload
+        )
+        assert result["order_details"]["item"] == "Coffee"
+        assert result["additional_info"]["delivery"] == "asap"
+
+    def test_update_order_empty_payload_no_change(self):
+        CustomerOrderProcessor.update_order(
+            bot=self.bot, order_id=self.order_id,
+            payload={"order_details": {"item": "Tea", "qty": 1, "price": 30}},
+        )
+        result = CustomerOrderProcessor.update_order(
+            bot=self.bot, order_id=self.order_id, payload={}
+        )
+        assert result["order_details"]["item"] == "Tea"
+
+    def test_update_order_not_found(self):
+        from bson import ObjectId
+        with pytest.raises(AppException, match="Order not found"):
+            CustomerOrderProcessor.update_order(
+                bot=self.bot, order_id=str(ObjectId()), payload={"additional_info": {}}
+            )
+
+    def test_update_order_invalid_id_raises(self):
+        with pytest.raises(AppException, match="Order not found"):
+            CustomerOrderProcessor.update_order(
+                bot=self.bot, order_id="not_an_object_id", payload={}
+            )
+
+    def test_update_order_does_not_change_status(self):
+        result = CustomerOrderProcessor.update_order(
+            bot=self.bot, order_id=self.order_id,
+            payload={"order_details": {"item": "Juice", "qty": 1, "price": 50}},
+        )
+        assert result["status"] == "placed"
+
+    def test_update_additional_info_merges_existing_fields(self):
+        CustomerOrderProcessor.update_order(
+            bot=self.bot, order_id=self.order_id,
+            payload={"additional_info": {"notes": "no onion"}},
+        )
+        result = CustomerOrderProcessor.update_order(
+            bot=self.bot, order_id=self.order_id,
+            payload={"additional_info": {"delivery": "asap"}},
+        )
+        assert result["additional_info"]["notes"] == "no onion"
+        assert result["additional_info"]["delivery"] == "asap"
+
+    def test_update_additional_info_overwrites_existing_key(self):
+        CustomerOrderProcessor.update_order(
+            bot=self.bot, order_id=self.order_id,
+            payload={"additional_info": {"notes": "no onion"}},
+        )
+        result = CustomerOrderProcessor.update_order(
+            bot=self.bot, order_id=self.order_id,
+            payload={"additional_info": {"notes": "extra spicy"}},
+        )
+        assert result["additional_info"]["notes"] == "extra spicy"
+
+
 class TestListOrders:
 
     @classmethod

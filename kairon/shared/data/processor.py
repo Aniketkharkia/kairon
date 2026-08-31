@@ -9501,3 +9501,12 @@ class MongoProcessor:
             return data
         except DoesNotExist:
             raise AppException("Store page metadata not found for this bot.")
+
+    @staticmethod
+    def save_store_page_metadata(bot: Text, user: Text, config: dict):
+        StorePageMetadata.objects(bot=bot).update_one(
+            set__config=config,
+            set__user=user,
+            set__timestamp=datetime.utcnow(),
+            upsert=True,
+        )
