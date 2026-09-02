@@ -19007,7 +19007,7 @@ def test_list_entities():
                 'audio', 'image', 'doc_url', 'document', 'video', 'order', 'payment', 'latitude',
                 'longitude', 'flow_reply', 'http_status_code', 'name', 'quick_reply', 'mail_id',
                 'subject', 'body', 'media_ids','flow_docs', 'flow_images', 'flow_data', 'llm_call_id',
-                'user_identifier', 'temp_token', 'store_page_name'}
+                'user_identifier', 'temp_token', 'store_page_name', 'callback_identifier'}
     assert not DeepDiff({item['name'] for item in actual['data']}, expected, ignore_order=True)
     assert actual["success"]
 

@@ -6247,7 +6247,7 @@ class TestMongoProcessor:
                                  'doc_url', 'longitude', 'latitude', 'flow_reply', 'quick_reply',
                                  'session_started_metadata', 'requested_slot', 'mail_id', 'subject', 'body', 'media_ids',
                                  'flow_docs', 'flow_images', 'flow_data', 'llm_call_id',
-                                 'user_identifier', 'temp_token', 'store_page_name'] for slot in domain.slots)
+                                 'user_identifier', 'temp_token', 'store_page_name', 'callback_identifier'] for slot in domain.slots)
         assert not DeepDiff(list(domain.responses.keys()), ['utter_please_rephrase', 'utter_greet', 'utter_goodbye',
                                                             'utter_default'], ignore_order=True)
         assert not DeepDiff(domain.entities,
@@ -6255,7 +6255,7 @@ class TestMongoProcessor:
                              'order', 'payment', 'http_status_code', 'image', 'audio', 'video', 'document', 'doc_url',
                              'longitude', 'latitude', 'flow_reply', 'quick_reply',  'mail_id', 'subject', 'body',
                              'media_ids', 'flow_docs', 'flow_images', 'flow_data', 'llm_call_id',
-                             'user_identifier', 'temp_token', 'store_page_name'], ignore_order=True)
+                             'user_identifier', 'temp_token', 'store_page_name', 'callback_identifier'], ignore_order=True)
         assert domain.forms == {'ask_user': {'required_slots': ['user', 'email_id']},
                                 'ask_location': {'required_slots': ['location', 'application_name']}}
         assert domain.user_actions == ['ACTION_GET_GOOGLE_APPLICATION', 'ACTION_GET_MICROSOFT_APPLICATION',
@@ -6823,7 +6823,7 @@ class TestMongoProcessor:
         expected = ["bot", "priority", "file_text", "ticketid", 'kairon_action_response', 'image', 'video', 'audio',
                     'doc_url', 'document', 'order', 'payment', 'quick_reply', 'longitude', 'latitude', 'flow_reply',
                     'http_status_code', 'mail_id', 'subject', 'body', 'media_ids', 'flow_docs', 'flow_images',
-                    'flow_data', 'llm_call_id', 'user_identifier', 'temp_token', 'store_page_name']
+                    'flow_data', 'llm_call_id', 'user_identifier', 'temp_token', 'store_page_name', 'callback_identifier']
         actual = processor.get_entities("tests")
         print([item["name"]  for item in actual])
         assert actual.__len__() == expected.__len__()
@@ -12016,9 +12016,10 @@ class TestMongoProcessor:
             {'name': 'user_identifier', 'type': 'any', 'influence_conversation': False, '_has_been_set': False, 'is_default': True},
             {'name': 'temp_token', 'type': 'any', 'influence_conversation': False, '_has_been_set': False, 'is_default': True},
             {'name': 'store_page_name', 'type': 'any', 'influence_conversation': False, '_has_been_set': False, 'is_default': True},
+            {'name': 'callback_identifier', 'type': 'any', 'influence_conversation': False, '_has_been_set': False, 'is_default': True},
 
         ]
-        assert len(slots) == 35
+        assert len(slots) == 36
         assert not DeepDiff(slots, expected, ignore_order=True)
 
     def test_update_slot_add_value_intent_and_not_intent(self):
